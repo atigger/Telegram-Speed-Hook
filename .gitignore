@@ -1,0 +1,9 @@
+.gradle/
+**/build/
+local.properties
+*.iml
+.idea/
+outputs/
+app/libs/api-82.jar
+*.jks
+*.keystore

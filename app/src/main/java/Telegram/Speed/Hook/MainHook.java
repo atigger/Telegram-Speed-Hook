@@ -1,76 +1,94 @@
 package Telegram.Speed.Hook;
 
-import android.app.Activity;
-import android.app.AndroidAppHelper;
-import android.os.Handler;
-import android.os.Looper;
-import android.widget.Toast;
+import android.app.Application;
+import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.util.Log;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.IXposedHookZygoteInit;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-public class MainHook implements IXposedHookLoadPackage {
-     
-     // Modified by Araaf Royall
-     
-    private final static long DEFAULT_MAX_FILE_SIZE = 1024L * 1024L * 2000L;
-    private static long speedUpShown = 0;
+public final class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
+    private static final String TAG = "TgSpeedHook";
+    private boolean installed;
+    static String modulePath;
 
     @Override
-    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam loadPackageParam) {
+    public void initZygote(StartupParam startup) {
+        modulePath = startup.modulePath;
+    }
 
-        if ("org.telegram.messenger".equals(loadPackageParam.packageName)) {
-            try {
-                XposedHelpers.findAndHookMethod("org.telegram.messenger.FileLoadOperation", loadPackageParam.classLoader, "updateParams", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-
-                        int downloadChunkSizeBig = 1024 * 1024;
-                        int maxDownloadRequests = 12;
-                        int maxDownloadRequestsBig = 12;
-
-                        var maxCdnParts = (int) (DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
-                        XposedHelpers.setIntField(param.thisObject, "downloadChunkSizeBig", downloadChunkSizeBig);
-                        XposedHelpers.setObjectField(param.thisObject, "maxDownloadRequests", maxDownloadRequests);
-                        XposedHelpers.setObjectField(param.thisObject, "maxDownloadRequestsBig", maxDownloadRequestsBig);
-                        XposedHelpers.setObjectField(param.thisObject, "maxCdnParts", maxCdnParts);
-
-                        try {
-                            var fileSize = XposedHelpers.getLongField(param.thisObject, "totalBytesCount");
-                            if (fileSize > 5 * 1024 * 1024 && System.currentTimeMillis() - speedUpShown > 1000 * 60 * 2) {
-                                speedUpShown = System.currentTimeMillis();
-                                var title = "Speed Boost Activated";
-                                var subtitle = "Extreme Speed Mode Enabled by Araaf Royall";
+    @Override
+    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam loadPackage) {
+        if (!"org.telegram.messenger".equals(loadPackage.packageName)
+                || !loadPackage.packageName.equals(loadPackage.processName)) {
+            return;
+        }
+        XposedBridge.hookAllMethods(Application.class, "attach", new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
+                if (installed || param.hasThrowable()) {
+                    return;
+                }
+                installed = true;
+                Context context = (Context) param.args[0];
+                try {
+                    PackageInfo info = context.getPackageManager()
+                            .getPackageInfo(context.getPackageName(), 0);
+                    log("Telegram " + info.versionName + " (" + info.versionCode + ")");
+                    SpeedPolicy.Config config = SpeedPolicy.loadConfig();
+                    log("PROFILE " + config.name);
+                    if (!config.enabled) {
+                        log("PROFILE_ORIGINAL: no download fields changed");
+                        return;
+                    }
+                    HookResolver.Target target = HookResolver.resolve(context);
+                    SpeedPolicy policy = new SpeedPolicy(target, config);
+                    XC_MethodHook.Unhook paramsHook = XposedBridge.hookMethod(
+                            target.updateParams, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam update) {
+                            if (!update.hasThrowable()) {
                                 try {
-                                    var notificationCenterClass = XposedHelpers.findClass("org.telegram.messenger.NotificationCenter", loadPackageParam.classLoader);
-                                    var globalInstance = XposedHelpers.callStaticMethod(notificationCenterClass, "getGlobalInstance");
-                                    new Handler(Looper.getMainLooper()).post(() -> XposedHelpers.callMethod(
-                                            globalInstance,
-                                            "postNotificationName",
-                                            XposedHelpers.getStaticIntField(notificationCenterClass, "showBulletin"),
-                                            new Object[]{4, title, subtitle}));
-                                } catch (Throwable t) {
-                                    XposedBridge.log(t);
-                                    Toast.makeText(AndroidAppHelper.currentApplication(), title + "\n" + subtitle, Toast.LENGTH_SHORT).show();
+                                    policy.apply(update.thisObject);
+                                } catch (Throwable error) {
+                                    policy.disable(error);
                                 }
                             }
-                        } catch (Throwable t) {
-                            XposedBridge.log(t);
                         }
+                    });
+                    try {
+                        if (target.updateBudget != null) {
+                        XposedBridge.hookMethod(target.updateBudget, new XC_MethodHook() {
+                            @Override
+                            protected void afterHookedMethod(MethodHookParam update) {
+                                if (!update.hasThrowable()) {
+                                    try {
+                                        policy.applyBudget(update.thisObject);
+                                    } catch (Throwable error) {
+                                        policy.disable(error);
+                                    }
+                                }
+                            }
+                        });
+                        }
+                    } catch (Throwable error) {
+                        paramsHook.unhook();
+                        throw error;
                     }
-                });
-            } catch (Throwable t) {
-                XposedBridge.log(t);
-                XposedHelpers.findAndHookMethod(Activity.class, "onResume", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        Toast.makeText((Activity) param.thisObject, "Tg Speed Hook : Unsupported Feature", Toast.LENGTH_LONG).show();
-                    }
-                });
+                    log("HOOK_READY " + target.updateParams + "; budget=" + target.updateBudget);
+                } catch (Throwable error) {
+                    log("UNSUPPORTED: " + Log.getStackTraceString(error));
+                }
             }
-        }
+        });
+    }
+
+    static void log(String message) {
+        Log.i(TAG, message);
+        XposedBridge.log(TAG + ": " + message);
     }
 }

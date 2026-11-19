@@ -1,9 +1,9 @@
 
 <manifest
 	xmlns:android="http://schemas.android.com/apk/res/android"
-	package="Telegram.Speed.Hook">
+	>
 	<application
-		android:allowBackup="true"
+		android:allowBackup="false"
 		android:icon="@drawable/app_icon"
 		android:label="@string/app_name"
 		android:theme="@style/AppTheme">
@@ -19,18 +19,18 @@
 				<category android:name="android.intent.category.LAUNCHER" />
 			</intent-filter>
 		</activity>
-		<activity
-			android:name=".DebugActivity"
-			android:screenOrientation="portrait" />
 <meta-data
     android:name="xposedmodule"
     android:value="true" />
 <meta-data
     android:name="xposeddescription"
-    android:value="Increase Telegram Download Speed to Extreme" />
+    android:value="@string/module_description" />
 <meta-data
     android:name="xposedminversion"
-    android:value="82" />
+    android:value="93" />
+<meta-data
+    android:name="xposedsharedprefs"
+    android:value="true" />
 <meta-data
     android:name="xposedscope"
     android:value="org.telegram.messenger" />

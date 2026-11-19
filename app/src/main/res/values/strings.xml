@@ -1,3 +1,23 @@
 <resources>
 	<string name="app_name" translatable="false">Telegram Speed Hook</string>
+	<string name="module_description">Dynamic Telegram download scheduling hook for obfuscated builds. Original author: AraafRoyall.</string>
+	<string name="title">Telegram Speed Hook\n%s</string>
+	<string name="description">Choose a download scheduling profile, then save and force-stop Telegram before reopening it.\nWarning: force-stopping interrupts active downloads, calls, and other Telegram operations. Root permission is required the first time.\n\nBalanced and High requests both use 1 MiB chunks. Obfuscated class names are discovered dynamically. Only client-side scheduling for ordinary large files is adjusted; server limits are not changed and a speed increase is not guaranteed. Connection and request counts are upper bounds, not a promise of active concurrency.\n\n</string>
+	<string-array name="profile_options">
+		<item>Original · no changes</item>
+		<item>Balanced · 4 lanes / 8 requests</item>
+		<item>High requests · 4 lanes / 12 requests</item>
+	</string-array>
+	<string name="save_button">Save and force-stop Telegram (Root)</string>
+	<string name="settings_unavailable">Shared preferences are unavailable. Enable this module in a compatible LSPosed setup, wait for the module cache to refresh, and reopen this screen. Telegram was not modified or stopped.</string>
+	<string name="saving">Saving settings and requesting Root permission. Watch for the authorization prompt...</string>
+	<string name="details">\nSettings are read the next time Telegram starts. If Root permission is denied, the setting is still saved but Telegram must be force-stopped manually.\n\nLog tag: TgSpeedHook\nPROFILE: profile read by the hook\nPARAMS_APPLIED: download parameters written and read back\nBUDGET_APPLIED: budget lanes and request limit written and read back\nUNSUPPORTED / POLICY_DISABLED: discovery failed or later changes were disabled\n\nOriginal author: AraafRoyall\nOriginal repository: https://github.com/AraafRoyall/Telegram-Speed-Hook\n\nAdaptation repository: https://github.com/atigger/Telegram-Speed-Hook\nThis adaptation is not a release by the original author.</string>
+	<string name="save_failed">Settings were not saved, so Telegram was not stopped. Try again.</string>
+	<string name="saved_profile">Saved: %s</string>
+	<string name="operation_failed">The operation failed. Reopen the module and confirm the setting; Telegram was not stopped without confirmed save success.</string>
+	<string name="root_timeout">Root authorization timed out. Authorize and try again, or force-stop Telegram manually.</string>
+	<string name="stop_success">Telegram was force-stopped. Reopen it to use the new setting.</string>
+	<string name="stop_failed">Telegram could not be force-stopped. Grant Root permission and try again, or stop it manually.</string>
+	<string name="su_failed">SU could not be executed. Check Root access or force-stop Telegram manually.</string>
+	<string name="stop_interrupted">The stop operation was interrupted. Force-stop Telegram manually.</string>
 </resources>

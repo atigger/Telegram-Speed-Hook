@@ -1,0 +1,22 @@
+<resources>
+	<string name="module_description">Telegram 动态下载调度钩子，支持识别混淆版本。原作者：AraafRoyall。</string>
+	<string name="title">Telegram Speed Hook\n%s</string>
+	<string name="description">选择下载调度档位，保存并强制停止 TG 后，重新打开生效。\n注意：强制停止会中断正在进行的下载、通话等操作。首次使用需要授予本模块 Root 权限。\n\n均衡和高请求档均使用 1 MiB 分块。动态识别混淆类名；只调整普通大文件的客户端调度，不保证提速，也不改变服务器限制。连接数和请求数是配置上限，不代表实际活跃数。\n\n</string>
+	<string-array name="profile_options">
+		<item>原版 · 不修改参数</item>
+		<item>均衡 · 4 路 / 8 请求</item>
+		<item>高请求 · 4 路 / 12 请求</item>
+	</string-array>
+	<string name="save_button">保存并停止 TG（Root）</string>
+	<string name="settings_unavailable">共享配置不可用：请在支持共享配置的 LSPosed 中启用本模块，等待模块刷新后重新打开此界面。未修改或停止 Telegram。</string>
+	<string name="saving">正在保存并请求 Root 权限，请留意授权提示……</string>
+	<string name="details">\n设置在 TG 下次启动时读取。若拒绝 Root 授权，设置仍会保存，但需手动强制停止 TG。\n\n日志标签：TgSpeedHook\nPROFILE：当前读取的档位\nPARAMS_APPLIED：已写入并回读下载参数\nBUDGET_APPLIED：已写入并回读预算连接数/请求数\nUNSUPPORTED / POLICY_DISABLED：识别失败或停止后续修改\n\n原项目作者：AraafRoyall\n原项目仓库：https://github.com/AraafRoyall/Telegram-Speed-Hook\n\n当前适配仓库：https://github.com/atigger/Telegram-Speed-Hook\n本适配不代表原作者发布。</string>
+	<string name="save_failed">设置保存失败，未停止 TG，请重试。</string>
+	<string name="saved_profile">已保存：%s</string>
+	<string name="operation_failed">操作失败，请重新打开模块并确认设置；未确认保存成功时不会停止 TG。</string>
+	<string name="root_timeout">Root 授权超时，请授权后重试，或手动强制停止 TG。</string>
+	<string name="stop_success">TG 已强制停止，重新打开即可使用新设置。</string>
+	<string name="stop_failed">未能强制停止 TG，请授予 Root 权限后重试，或手动停止。</string>
+	<string name="su_failed">无法执行 SU，请确认 Root 可用，或手动强制停止 TG。</string>
+	<string name="stop_interrupted">停止操作被中断，请手动强制停止 TG。</string>
+</resources>
