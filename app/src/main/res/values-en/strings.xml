@@ -1,23 +1,63 @@
 <resources>
 	<string name="app_name" translatable="false">Telegram Speed Hook</string>
-	<string name="module_description">Dynamic Telegram download scheduling hook for obfuscated builds. Original author: AraafRoyall.</string>
+	<string name="module_description">Telegram download and video loading optimization with download profiles and local logs. Original author: AraafRoyall.</string>
 	<string name="title">Telegram Speed Hook\n%s</string>
-	<string name="description">Choose a download scheduling profile, then save and force-stop Telegram before reopening it.\nWarning: force-stopping interrupts active downloads, calls, and other Telegram operations. Root permission is required the first time.\n\nBalanced and High requests both use 1 MiB chunks. Obfuscated class names are discovered dynamically. Only client-side scheduling for ordinary large files is adjusted; server limits are not changed and a speed increase is not guaranteed. Connection and request counts are upper bounds, not a promise of active concurrency.\n\n</string>
+	<string name="description">Tune download concurrency and video loading.\n\nChoose a download profile, enable video optimization if needed, then save and reopen Telegram. Grant Root permission on first use.\nSaving stops Telegram and interrupts active downloads and calls.\n</string>
 	<string-array name="profile_options">
-		<item>Original · no changes</item>
+		<item>Original downloads · unchanged</item>
 		<item>Balanced · 4 lanes / 8 requests</item>
 		<item>High requests · 4 lanes / 12 requests</item>
 	</string-array>
-	<string name="save_button">Save and force-stop Telegram (Root)</string>
-	<string name="settings_unavailable">Shared preferences are unavailable. Enable this module in a compatible LSPosed setup, wait for the module cache to refresh, and reopen this screen. Telegram was not modified or stopped.</string>
-	<string name="saving">Saving settings and requesting Root permission. Watch for the authorization prompt...</string>
-	<string name="details">\nSettings are read the next time Telegram starts. If Root permission is denied, the setting is still saved but Telegram must be force-stopped manually.\n\nLog tag: TgSpeedHook\nPROFILE: profile read by the hook\nPARAMS_APPLIED: download parameters written and read back\nBUDGET_APPLIED: budget lanes and request limit written and read back\nUNSUPPORTED / POLICY_DISABLED: discovery failed or later changes were disabled\n\nOriginal author: AraafRoyall\nOriginal repository: https://github.com/AraafRoyall/Telegram-Speed-Hook\n\nAdaptation repository: https://github.com/atigger/Telegram-Speed-Hook\nThis adaptation is not a release by the original author.</string>
-	<string name="save_failed">Settings were not saved, so Telegram was not stopped. Try again.</string>
+	<string name="save_button">Save and stop Telegram</string>
+	<string name="settings_unavailable">Cannot read settings. Enable this module in LSPosed, then reopen settings.</string>
+	<string name="saving">Saving… Check for a Root permission prompt.</string>
+	<string name="details">Download profiles\nBalanced: 1 MiB chunks, up to 4 logical lanes and 8 requests.\nHigh requests: 1 MiB chunks, up to 4 logical lanes and 12 requests.\nOriginal: keep ordinary downloads unchanged; video optimization is controlled separately.\nActual speed depends on your network, proxy route and Telegram servers.\n\nSettings apply when Telegram next starts. If automatic stopping fails, force-stop it manually and reopen it.\n\nOriginal author: AraafRoyall\nOriginal project: https://github.com/AraafRoyall/Telegram-Speed-Hook\nMaintained fork: https://github.com/atigger/Telegram-Speed-Hook</string>
+	<string name="save_failed">Could not save settings. Telegram was not stopped. Try again.</string>
 	<string name="saved_profile">Saved: %s</string>
-	<string name="operation_failed">The operation failed. Reopen the module and confirm the setting; Telegram was not stopped without confirmed save success.</string>
-	<string name="root_timeout">Root authorization timed out. Authorize and try again, or force-stop Telegram manually.</string>
-	<string name="stop_success">Telegram was force-stopped. Reopen it to use the new setting.</string>
-	<string name="stop_failed">Telegram could not be force-stopped. Grant Root permission and try again, or stop it manually.</string>
-	<string name="su_failed">SU could not be executed. Check Root access or force-stop Telegram manually.</string>
-	<string name="stop_interrupted">The stop operation was interrupted. Force-stop Telegram manually.</string>
+	<string name="operation_failed">Operation failed. Reopen settings and try again.</string>
+	<string name="root_timeout">Root permission timed out. Grant access and retry, or force-stop Telegram manually.</string>
+	<string name="stop_success">Telegram stopped. Reopen it to apply your settings.</string>
+	<string name="stop_failed">Could not stop Telegram. Check Root access or force-stop it manually.</string>
+	<string name="su_failed">Root access is unavailable. Force-stop Telegram manually.</string>
+	<string name="stop_interrupted">Operation interrupted. Force-stop Telegram manually.</string>
+	<string name="toast_ready">Speed Hook: module loaded.</string>
+	<string name="toast_applied">Speed Hook: download optimization active.</string>
+	<string name="toast_original">Speed Hook: using original downloads.</string>
+	<string name="toast_failed">Speed Hook: scheduling error. Check the logs.</string>
+	<string name="live_log_title">Live log</string>
+	<string name="live_log_help">Logs stay on this device and are kept for 24 hours, with no entry limit. Export or clear them at any time. Exported files are managed separately. Lane counts refer to logical download lanes.</string>
+	<string name="live_log_recording">Local recording (turning off clears logs)</string>
+	<string name="live_log_watch">View logs</string>
+	<string name="live_log_pause">Pause viewing</string>
+	<string name="live_log_follow">Follow latest entries</string>
+	<string name="live_log_export">Export logs…</string>
+	<string name="live_log_idle">Open Telegram to see live entries here. The viewer starts with the latest minute; export includes all retained records.</string>
+	<string name="live_log_enabled">Local recording is on. Logs are kept for 24 hours.</string>
+	<string name="live_log_disabled">Local recording is off. Logs cleared.</string>
+	<string name="live_log_control_failed">Could not change recording. Check Root access and try again.</string>
+	<string name="live_log_status_failed">Cannot read recording status. Check Root access and tap to retry.</string>
+	<string name="live_log_read_failed">Could not read logs. Viewing paused. Check Root access and try again.</string>
+	<string name="live_log_state">Module %1$s · %2$s · State: %3$s · Profile: %4$s</string>
+	<string name="live_log_sample">Pending chunks=%1$d · written=%2$d · logical lanes=%3$d · peaks: chunks=%4$d / lanes=%5$d · completion callbacks=%6$d · responses=%8$d · RPC errors=%9$d · submission failures=%10$d · unknown outcomes=%11$d · cleared/cancelled=%7$d</string>
+	<string name="live_log_sample_legacy">Pending chunks=%1$d · written=%2$d · logical lanes=%3$d · peaks: chunks=%4$d / lanes=%5$d · completion callbacks (legacy, unclassified)=%6$d · cleared/cancelled=%7$d</string>
+	<string name="live_log_invalid">An entry is still being written. Retrying on the next refresh.</string>
+	<string name="live_log_exported">Logs exported. Exported files are not automatically deleted.</string>
+	<string name="live_log_export_failed">Export did not finish. Check that logs are available and try again. The destination file may be incomplete.</string>
+	<string name="live_log_current">Current session</string>
+	<string name="live_log_history">History (not matched to the current session)</string>
+	<string name="live_log_monitor_unavailable">Download statistics are currently unavailable.</string>
+	<string name="video_switch">Video optimization</string>
+	<string name="video_help">Prioritize data at the current playback position and update the target chunks when seeking. Independent of the download profile and off by default. New video tasks use smaller chunks and separate concurrency settings; existing tasks keep their chunk size.</string>
+	<string name="video_saved_on">Video optimization: ON</string>
+	<string name="video_saved_off">Video optimization: OFF</string>
+	<string name="live_log_video_state">Video optimization: %s</string>
+	<string name="live_log_clear">Clear logs / start fresh…</string>
+	<string name="live_log_clear_title">Clear logs and reset statistics?</string>
+	<string name="live_log_clear_confirm">Local logs will be permanently deleted. Export anything you want to keep first. Request counters and peaks will reset; recording and download settings stay unchanged. No Telegram restart is needed. Exported files are not affected.</string>
+	<string name="live_log_clear_action">Clear logs</string>
+	<string name="live_log_cleared">Logs cleared. Waiting for Telegram to start a new capture.</string>
+	<string name="live_log_clear_pending">Waiting for Telegram to reset statistics. Open Telegram if it is not running.</string>
+	<string name="live_log_capture_ready">New capture started. Request counters and peaks reset.</string>
+	<string name="live_log_clear_failed">Could not finish clearing logs. Some entries may have been deleted. Check Root access and retry.</string>
+	<string name="live_log_checking">Reading recording status…</string>
 </resources>

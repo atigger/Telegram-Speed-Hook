@@ -1,113 +1,161 @@
 # Telegram Speed Hook
 
-Xposed/LSPosed module for experimenting with Telegram client-side download scheduling.
+Telegram 下载与视频加载优化模块，基于 Xposed / LSPosed。支持下载档位、视频分块优先调度、本地实时日志和中英文自动切换。
 
-Current version / 当前版本: **3.2.0** (`versionCode 6`). See [release notes / 更新记录](docs/CHANGELOG.md).
+An Xposed / LSPosed module for Telegram download and video loading optimization, with download profiles, video chunk prioritization, local live logs and a bilingual interface.
 
-## Attribution / 归属
+**3.3.4** · `versionCode 12` · [下载 / Download](https://github.com/atigger/Telegram-Speed-Hook/releases/tag/v3.3.4)
 
-- Original author / 原作者: **AraafRoyall**
-- Original repository / 原项目仓库: <https://github.com/AraafRoyall/Telegram-Speed-Hook>
-- Adaptation repository / 当前适配仓库: <https://github.com/atigger/Telegram-Speed-Hook>
+[中文](#中文说明) · [English](#english) · [更新记录 / Changelog](docs/CHANGELOG.md) · [兼容性 / Compatibility](docs/COMPATIBILITY.md)
 
-This repository keeps the original author attribution and original project link. The 13.2.2 compatibility work is an adaptation; it is not presented as the original author's release.
+## 作者与仓库 / Credits
 
-本仓库保留原作者署名和原项目链接。Telegram 13.2.2 兼容工作属于后续适配，不冒充原作者发布。
+- 原作者 / Original author: **AraafRoyall**
+- 原项目 / Original project: <https://github.com/AraafRoyall/Telegram-Speed-Hook>
+- 维护仓库 / Maintained fork: <https://github.com/atigger/Telegram-Speed-Hook>
+
+本仓库基于原项目维护，增加新版 Telegram 适配、下载设置、视频优化和日志功能。
+
+This fork builds on the original project with updated Telegram compatibility, download settings, video optimization and diagnostics.
 
 ## 中文说明
 
-### Telegram 13.2.2
+### 安装与使用
 
-Google Play 版 Telegram 13.2.2 的类名和字段名经过混淆，原项目固定查找 `FileLoadOperation.updateParams` 的方式无法直接工作。本适配使用 DexKit 根据方法常量、签名、字段读写关系动态查找目标，不把本次 APK 的混淆类名写死。
+需要 Android 7.0 及以上、Root，以及支持模块共享配置的 Xposed / LSPosed 环境。作用域选择 `org.telegram.messenger`。
 
-### 设置档位
+1. 从 [Releases](https://github.com/atigger/Telegram-Speed-Hook/releases) 下载 APK 并安装。
+2. 在 LSPosed 中启用模块，勾选 Telegram 作用域，按框架提示完成激活。
+3. 打开模块，选择下载档位，按需开启视频优化。
+4. 点击“保存并停止 Telegram”，授予 Root 权限，再重新打开 Telegram。
 
-- **原版**：不修改 Telegram 下载参数。
-- **均衡**：1 MiB 分块、4 路连接、8 请求上限。
-- **高请求**：1 MiB 分块、4 路连接、12 请求上限。
+保存会中断 Telegram 当前的下载和通话。无法自动停止时，可手动强制停止后重新打开。
 
-模块设置页跟随 Android 系统语言：中文使用中文界面，英文使用英文界面；其他未翻译语言回退到英文。语言变化不会更改已保存档位。保存按钮会先写入配置，再尝试通过 Root 强制停止 Telegram；重新打开 Telegram 后生效。强制停止会中断正在进行的下载和其他 Telegram 操作。
+### 下载档位
 
-### 当前验证结果
+| 档位 | 分块大小 | 逻辑通道上限 | 请求上限 |
+| --- | --- | --- | --- |
+| 原版 | Telegram 默认 | Telegram 默认 | Telegram 默认 |
+| 均衡 | 1 MiB | 4 | 8 |
+| 高请求 | 1 MiB | 4 | 12 |
 
-- 已在 Telegram `13.2.2`、version code `73031`、包名 `org.telegram.messenger` 上验证动态发现和字段回读。
-- 已观察到 `PARAMS_APPLIED` 和 `BUDGET_APPLIED` 回读日志；字段写入不等同于实际活跃并发或提速。
-- 用户反馈均衡档约为 3 MB/s，此前 8 路高并发档约为 2 MB/s。两档同时改变了连接数和请求上限，且不是受控测速，不能归因为单一参数。当前高请求档保留 4 路、只提高请求上限，仍需继续实测。
-- 这些结果不是通用基准，也未确定瓶颈原因；不能把代理测速直接视为 Telegram 下载速度保证。
+原版档保留普通下载设置，视频优化仍可单独开启。表中数值是调度上限，实际并发随任务变化；请求越多不一定越快，可根据线路表现选择。
 
-### 构建与安装
+### 视频优化
 
-可在 [GitHub Releases](https://github.com/atigger/Telegram-Speed-Hook/releases) 下载已签名 APK。`3.2.0` 使用 Release 构建，并沿用本次测试安装的本地开发证书签名，以便覆盖升级；它不是原作者的签名，也不是原作者发布。签名私钥不进入仓库或发布附件。其他来源安装的版本若签名不同，不能直接覆盖安装。
+视频开关默认关闭。开启后沿用 Telegram 原生队列排序，优先请求当前读取位置的分块，用于视频起播和拖动后的加载。
 
-需要 JDK 17、Android SDK 35，以及同时支持旧版 Xposed 钩子 API 和 API 93 共享配置扩展的 LSPosed 兼容环境：
+适用的新任务采用 **128 KiB 分块、最多 16 个请求和 4 个逻辑通道**。已经开始的任务保留原分块大小，避免破坏请求对齐。普通下载继续使用所选档位；音频和完整缓存的本地播放不受影响。
+
+实际加载速度取决于网络、代理线路、Telegram 服务端和播放器状态。模块调整客户端调度，不改变服务端限制。
+
+### 日志与状态
+
+Telegram 启动后显示模块状态提示；下载参数应用后提示“下载优化已生效”。
+
+- 本地记录默认关闭，开启后显示彩色实时日志，支持跟随最新记录和暂停查看。日志仅保存在本机，不上传。
+- 保留最近 **24 小时**，不设条数上限。Telegram 运行、查看或导出时清理过期记录；停止期间的记录在下次运行时清理。
+- **暂停查看**只暂停界面刷新，不停止记录；关闭本地记录会删除保存的日志并收起面板。
+- **清空日志 / 重新抓取**删除现有日志并重置统计，保留开关和下载设置，无需重启 Telegram。
+- **导出日志**保存保留期内的记录，导出文件不参与自动清理。
+
+日志包含在途分块、逻辑通道、响应、RPC 错误及视频位置请求，不记录聊天内容、文件名或视频 URI。通道数是逻辑调度统计，不是物理 TCP 连接数。
+
+| 事件 | 含义 |
+| --- | --- |
+| `HOOK_READY` | 模块加载完成 |
+| `PARAMS_APPLIED` / `BUDGET_APPLIED` | 下载参数 / 并发预算已应用 |
+| `VIDEO_READY` | 视频调度已加载 |
+| `VIDEO_POSITION_REQUESTED` | 当前请求的数据位置 |
+| `VIDEO_RANGE_SUBMITTED` | 已提交分块的范围，以及是否覆盖目标位置 |
+| `VIDEO_FIRST_DATA` / `VIDEO_SLOW_READ` | 首次读取数据耗时 / 不少于 250 ms 的读取 |
+| `UNSUPPORTED` / `POLICY_DISABLED` / `VIDEO_DISABLED` | 适配或调度异常 |
+
+提交、响应和读取是不同阶段；读取耗时不等同于画面恢复时间。事件名保留英文，方便检索。
+
+### 兼容性与语言
+
+已在 Google Play 版 Telegram **13.2.2（73031）** 和 **13.3.1（73461）** 上进行实机测试。3.3.3 在 13.3.1 上已观察到新位置分块请求和数据读取。通过 DexKit 方法特征和字段访问关系识别目标，不依赖固定混淆类名。适配逻辑见[兼容性说明](docs/COMPATIBILITY.md)。
+
+界面跟随 Android 系统语言，中文系统显示中文，其他语言使用英文。切换语言不影响已保存的设置。
+
+### 构建
+
+使用 JDK 17 和 Android SDK 35：
 
 ```powershell
-$env:JAVA_HOME = 'C:\path\to\jdk-17'
-$env:ANDROID_HOME = 'C:\path\to\Android\Sdk'
-.\gradlew.bat assembleDebug
-adb install -r app\build\outputs\apk\debug\app-debug.apk
+.\gradlew.bat assembleDebug assembleRelease
 ```
 
-在 LSPosed 中启用模块并选择 Telegram，打开模块设置页保存档位。若共享配置不可读，钩子会记录 `PROFILE_READ_FAILED` 并保持原版行为。更新模块后等待 LSPosed 刷新模块缓存，再启动 Telegram。`assembleRelease` 生成未签名 APK；仓库不包含签名密钥。
-
-### 日志与边界
-
-日志标签为 `TgSpeedHook`：
-
-- `HOOK_READY`：挂钩安装完成。
-- `PARAMS_APPLIED`：下载参数写入并回读确认。
-- `BUDGET_APPLIED`：预算连接数和请求上限写入并回读确认。
-- `UNSUPPORTED` / `POLICY_DISABLED`：无法识别或安全校验失败。
-
-诊断日志保留固定英文标识，方便跨语言检索；界面说明和状态消息提供中英版本。
-
-本模块只调整客户端调度，不修改 Telegram 协议，也不能移除服务端限速。未来 Telegram 版本改变实现后，需要重新检查日志和方法特征。
+`assembleDebug` 生成调试签名 APK；`assembleRelease` 生成未签名 APK，需要自行签名。维护版与原作者使用不同签名，从原版切换时需要先卸载旧模块。
 
 ## English
 
-### Telegram 13.2.2
+### Setup
 
-The Google Play build of Telegram 13.2.2 obfuscates class and field names, so the original fixed lookup of `FileLoadOperation.updateParams` no longer works directly. This adaptation uses DexKit to discover the target from method constants, signatures, and field read/write relationships instead of hardcoding the obfuscation names from one APK.
+Requires Android 7.0 or later, Root, and Xposed / LSPosed with shared module preferences. Target package: `org.telegram.messenger`.
 
-### Profiles
+1. Install an APK from [Releases](https://github.com/atigger/Telegram-Speed-Hook/releases).
+2. Enable the module in LSPosed, select Telegram and follow the framework activation instructions.
+3. Open the module, choose a download profile and optionally enable video optimization.
+4. Tap **Save and stop Telegram**, grant Root access, then reopen Telegram.
 
-- **Original**: do not change Telegram download parameters.
-- **Balanced**: 1 MiB chunks, 4 connection lanes, 8-request limit.
-- **High requests**: 1 MiB chunks, 4 connection lanes, 12-request limit.
+Saving interrupts active Telegram downloads and calls. If automatic stopping fails, force-stop Telegram manually and reopen it.
 
-The settings screen follows the Android system language: Chinese and English are provided, with English as the fallback for untranslated languages. Changing the language does not change the saved profile. The save button writes the profile first, then tries to force-stop Telegram through Root; the profile is read when Telegram starts again. Force-stopping interrupts active downloads and other Telegram operations.
+### Download profiles
 
-### Current validation
+| Profile | Chunk size | Logical lane limit | Request limit |
+| --- | --- | --- | --- |
+| Original | Telegram default | Telegram default | Telegram default |
+| Balanced | 1 MiB | 4 | 8 |
+| High requests | 1 MiB | 4 | 12 |
 
-- Dynamic discovery and field read-back were verified on Telegram `13.2.2`, version code `73031`, package `org.telegram.messenger`.
-- `PARAMS_APPLIED` and `BUDGET_APPLIED` read-back logs have been observed; written fields are not proof of active concurrency or a speed increase.
-- The user reported roughly 3 MB/s with Balanced and 2 MB/s with the earlier eight-lane profile. Both connection and request limits changed, and the comparison was not a controlled benchmark, so no single cause is established. The current High requests profile keeps four lanes and only raises the request limit; more testing is still needed.
-- These observations are not universal benchmarks, and the bottleneck is not established. Proxy benchmark throughput is not a guaranteed Telegram download speed.
+Original leaves ordinary downloads unchanged; video optimization can still be enabled separately. These are scheduling limits, not fixed active counts. Choose a profile for your connection: more requests do not always mean higher speed.
 
-### Build and install
+### Video optimization
 
-Download the signed APK from [GitHub Releases](https://github.com/atigger/Telegram-Speed-Hook/releases). Version `3.2.0` is a Release build signed with the same local development certificate as this adaptation's test installation for in-place upgrades. It is neither signed nor released by the original author. Private signing keys are not included in the repository or release assets. Installations signed with a different certificate cannot be updated in place.
+Off by default. Preserves native queue ranking and prioritizes chunks at the current read position for startup and seeking.
 
-Requires JDK 17, Android SDK 35, and an LSPosed-compatible environment supporting both legacy Xposed hooks and the API 93 shared-preference extension:
+Eligible new operations use **128 KiB chunks, up to 16 requests and 4 logical lanes**. Existing operations retain their chunk size to preserve request alignment. Ordinary downloads follow the selected profile; audio and fully cached local playback are unchanged.
+
+Loading speed depends on the network, proxy route, Telegram servers and player state. This module adjusts client scheduling, not server-side limits.
+
+### Logs and status
+
+A startup Toast reports module status. Once download parameters are applied, it reports **download optimization active**.
+
+- Recording is off by default. Enable it for colored live logs, auto-scroll and pause. Logs stay on this device and are not uploaded.
+- Records are kept for **24 hours**, with no entry limit. Expired records are removed while Telegram runs or when viewing or exporting logs; cleanup resumes on the next run after Telegram stops.
+- **Pause viewing** pauses the display, not recording. Turning recording off deletes saved logs and collapses the panel.
+- **Clear logs / start fresh** deletes local logs and resets counters while preserving recording and download settings. No Telegram restart is needed.
+- **Export logs** saves all retained records. Exported files are excluded from automatic cleanup.
+
+Logs include pending chunks, logical lanes, responses, RPC errors and video position requests, but exclude chats, filenames and video URIs. Logical lanes are scheduling statistics, not physical TCP connections.
+
+| Event | Meaning |
+| --- | --- |
+| `HOOK_READY` | Hooks installed |
+| `PARAMS_APPLIED` / `BUDGET_APPLIED` | Download parameters / concurrency budget applied |
+| `VIDEO_READY` | Video scheduling loaded |
+| `VIDEO_POSITION_REQUESTED` | Requested data position |
+| `VIDEO_RANGE_SUBMITTED` | Submitted chunk range and target coverage |
+| `VIDEO_FIRST_DATA` / `VIDEO_SLOW_READ` | First data timing / reads taking at least 250 ms |
+| `UNSUPPORTED` / `POLICY_DISABLED` / `VIDEO_DISABLED` | Compatibility or scheduling error |
+
+Submission, response and reading are separate stages. Read timing is not playback recovery timing. Event names remain in English for searching.
+
+### Compatibility and language
+
+Device testing covers Google Play Telegram **13.2.2 (73031)** and **13.3.1 (73461)**. On 13.3.1, version 3.3.3 logs show requests at new positions followed by successful reads. DexKit identifies targets using method fingerprints and field accesses instead of fixed obfuscation names. See [compatibility notes](docs/COMPATIBILITY.md) for implementation details.
+
+The interface follows the Android system language: Chinese for Chinese locales, English otherwise. Changing languages does not affect saved settings.
+
+### Build
+
+Use JDK 17 and Android SDK 35:
 
 ```powershell
-$env:JAVA_HOME = 'C:\path\to\jdk-17'
-$env:ANDROID_HOME = 'C:\path\to\Android\Sdk'
-.\gradlew.bat assembleDebug
-adb install -r app\build\outputs\apk\debug\app-debug.apk
+.\gradlew.bat assembleDebug assembleRelease
 ```
 
-Enable the module in LSPosed, select Telegram, and open the module settings to save a profile. If the shared settings are unreadable, the hook logs `PROFILE_READ_FAILED` and leaves the original behavior enabled. After updating the module, wait for LSPosed to refresh its module cache before starting Telegram. `assembleRelease` produces an unsigned APK; no signing key is included.
-
-### Logs and boundaries
-
-The log tag is `TgSpeedHook`:
-
-- `HOOK_READY`: hooks installed.
-- `PARAMS_APPLIED`: download parameters were written and read back.
-- `BUDGET_APPLIED`: budget lanes and request limit were written and read back.
-- `UNSUPPORTED` / `POLICY_DISABLED`: discovery or safety validation failed.
-
-Diagnostic logs keep fixed English identifiers for cross-language troubleshooting; the interface explanations and status messages are localized.
-
-This module changes client-side scheduling only. It does not modify the Telegram protocol or remove server-side limits. A future Telegram implementation change requires rechecking the method fingerprint and logs.
+`assembleDebug` creates a debug-signed APK. `assembleRelease` creates an unsigned APK that needs signing. This fork uses a different certificate from the original project; uninstall the original module before switching.

@@ -2,7 +2,6 @@ package Telegram.Speed.Hook;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
@@ -13,12 +12,14 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Switch;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class MainActivity extends Activity {
     private SharedPreferences preferences;
+    private LiveLogView logView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +46,12 @@ public class MainActivity extends Activity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         profileSpinner.setAdapter(adapter);
         add(content, profileSpinner);
+        Switch video = new Switch(this);
+        video.setText(R.string.video_switch);
+        add(content, video);
+        TextView videoHelp = new TextView(this);
+        videoHelp.setText(R.string.video_help);
+        add(content, videoHelp);
 
         Button save = new Button(this);
         save.setText(R.string.save_button);
@@ -60,19 +67,28 @@ public class MainActivity extends Activity {
                 selected = SpeedPolicy.PROFILE_ORIGINAL;
             }
             profileSpinner.setSelection(selected);
+            video.setChecked(preferences.getBoolean(SpeedPolicy.VIDEO_KEY, false));
         } catch (SecurityException error) {
             save.setEnabled(false);
+            video.setEnabled(false);
             status.setText(R.string.settings_unavailable);
         }
 
         save.setOnClickListener(view -> {
+            logView.stop();
             int profile = profileSpinner.getSelectedItemPosition();
+            boolean videoEnabled = video.isChecked();
             save.setEnabled(false);
             profileSpinner.setEnabled(false);
+            video.setEnabled(false);
             status.setText(R.string.saving);
-            new Thread(() -> saveAndStop(profile, profiles[profile], save, profileSpinner, status),
+            new Thread(() -> saveAndStop(profile, profiles[profile], videoEnabled,
+                    save, profileSpinner, video, status),
                     "tg-speed-settings").start();
         });
+
+        logView = new LiveLogView(this);
+        add(content, logView);
 
         TextView details = new TextView(this);
         details.setText(R.string.details);
@@ -85,18 +101,39 @@ public class MainActivity extends Activity {
         setContentView(scrollView);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        logView.setForeground(true);
+    }
+
+    @Override
+    protected void onPause() {
+        logView.setForeground(false);
+        super.onPause();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        logView.onExportResult(requestCode, resultCode, data);
+    }
+
     private void add(LinearLayout content, android.view.View view) {
         content.addView(view, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
-    private void saveAndStop(int profile, String profileLabel, Button save,
-                             Spinner spinner, TextView status) {
+    private void saveAndStop(int profile, String profileLabel, boolean videoEnabled, Button save,
+                             Spinner spinner, Switch video, TextView status) {
         String message;
         try {
-            boolean saved = preferences.edit().putInt(SpeedPolicy.PROFILE_KEY, profile).commit();
+            boolean saved = preferences.edit().putInt(SpeedPolicy.PROFILE_KEY, profile)
+                    .putBoolean(SpeedPolicy.VIDEO_KEY, videoEnabled).commit();
             message = !saved ? getString(R.string.save_failed)
-                    : getString(R.string.saved_profile, profileLabel) + "\n" + stopTelegram();
+                    : getString(R.string.saved_profile, profileLabel) + "\n"
+                    + getString(videoEnabled ? R.string.video_saved_on : R.string.video_saved_off)
+                    + "\n" + stopTelegram();
         } catch (RuntimeException error) {
             message = getString(R.string.operation_failed);
         }
@@ -106,31 +143,22 @@ public class MainActivity extends Activity {
                 status.setText(result);
                 save.setEnabled(true);
                 spinner.setEnabled(true);
+                video.setEnabled(true);
             }
         });
     }
 
     private String stopTelegram() {
-        Process process = null;
         try {
-            process = new ProcessBuilder("su", "-c",
-                    "am force-stop org.telegram.messenger").redirectErrorStream(true).start();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                    && !process.waitFor(30, TimeUnit.SECONDS)) {
-                return getString(R.string.root_timeout);
-            }
-            int exitCode = process.waitFor();
-            return exitCode == 0 ? getString(R.string.stop_success)
-                    : getString(R.string.stop_failed);
+            RootShell.Result result = RootShell.run("am force-stop org.telegram.messenger");
+            return getString(result.exitCode == 0 ? R.string.stop_success : R.string.stop_failed);
+        } catch (TimeoutException error) {
+            return getString(R.string.root_timeout);
         } catch (IOException error) {
             return getString(R.string.su_failed);
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             return getString(R.string.stop_interrupted);
-        } finally {
-            if (process != null) {
-                process.destroy();
-            }
         }
     }
 }

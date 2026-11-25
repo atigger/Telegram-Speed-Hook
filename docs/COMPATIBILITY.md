@@ -1,54 +1,77 @@
-# Compatibility / 兼容性说明
+# Compatibility / 兼容性
 
-## Attribution / 归属
+原作者 / Original author: **AraafRoyall** · [原项目 / Upstream](https://github.com/AraafRoyall/Telegram-Speed-Hook) · [维护仓库 / Fork](https://github.com/atigger/Telegram-Speed-Hook)
 
-- Original author / 原作者: **AraafRoyall**
-- Original repository / 原项目仓库: <https://github.com/AraafRoyall/Telegram-Speed-Hook>
-- Adaptation repository / 当前适配仓库: <https://github.com/atigger/Telegram-Speed-Hook>
+## 中文
 
-The original project attribution is retained. The notes below describe the later Telegram 13.2.2 adaptation and its observed test scope.
+### 实机测试
 
-本项目保留原项目署名。以下内容描述后续 Telegram 13.2.2 适配及当前实测范围。
+| Telegram 版本 | Version code | 已检查内容 |
+| --- | --- | --- |
+| 13.2.2（Google Play） | 73031 | 动态目标识别、下载参数和并发预算应用 |
+| 13.3.1（Google Play） | 73461 | 下载策略、视频位置请求、目标分块、数据读取和本地日志 |
 
-## Tested build / 测试版本
+目标包名为 `org.telegram.messenger`，仅处理主进程。3.3.3 的 13.3.1 实机日志记录了拖动后对新位置的请求和成功读取；缓存命中与未缓存读取分别存在。该记录用于验证调度行为，不作为带宽基准。
 
-The tested device runs Telegram `13.2.2`, version code `73031`, package `org.telegram.messenger`.
+### 动态识别
 
-测试设备上的 Telegram 为 `13.2.2`，version code 为 `73031`，包名为 `org.telegram.messenger`。
+Google Play 构建会混淆 `FileLoadOperation` 的类名、方法和字段。模块使用 DexKit 按特征发现目标，而不是固定查找源码类名。
 
-The Play APK is obfuscated. The source-level `FileLoadOperation` is emitted under an obfuscated name, and its parameter method and fields are also renamed. A fixed `XposedHelpers.findAndHookMethod("org.telegram.messenger.FileLoadOperation", ...)` therefore fails on this build.
+下载参数方法需要满足：
 
-Google Play APK 经过混淆。源码层的 `FileLoadOperation`、参数方法和字段都会被重命名，因此固定查找 `org.telegram.messenger.FileLoadOperation` 在此版本上会失败。
+- 无参数、返回 `void`，包含常量 `131072`、`524288`、`2097152000`。
+- 写入四个非静态 `int` 字段，读取两个非静态 `boolean` 保护字段。
 
-## Dynamic discovery / 动态发现
+并发预算方法单独识别，检查同类字段访问、除法指令和请求字段写入顺序；应用参数前再检查运行时值。视频数据源通过方法签名、URI 参数和监听接口识别，位置加载方法同时校验监听器写入关系。
 
-DexKit identifies the parameter method from:
+### 视频调度
 
-DexKit 根据以下特征识别下载参数方法：
+- 只处理 `tg` 数据源中的 `video/*` 流。
+- 保留 Telegram 原生队列优先级和递增排序；非零读取位置启用原生优先分块，零偏移沿用原路径。
+- 适用的新任务采用 128 KiB 分块、16 个请求和 4 个逻辑通道；已有任务保持分块对齐。
+- 视频开关独立于普通下载档位。恢复完整原生行为时，选择“原版下载”、关闭视频优化，保存后重开 Telegram。
 
-- no arguments and `void` return type / 无参数且返回 `void`；
-- constants `131072`, `524288`, and `2097152000` / 常量 `131072`、`524288`、`2097152000`；
-- exactly four non-static `int` fields written / 恰好写入四个非静态 `int` 字段；
-- exactly two non-static `boolean` guard fields read / 恰好读取两个非静态 `boolean` 守卫字段。
+### 异常处理与统计
 
-The newer byte-budget method is discovered separately. Its same-class field access shape, division opcode, and final request-field write are validated before it is hooked. The adapter then applies the selected profile only when runtime values match the expected Telegram defaults.
+识别失败记录 `UNSUPPORTED`；普通下载或视频策略异常分别记录 `POLICY_DISABLED`、`VIDEO_DISABLED` 并停止后续修改。字段写入失败时尝试回滚当批修改；先前任务的修改在重启 Telegram 后恢复。
 
-新的字节预算方法会单独发现，并校验同类字段访问关系、除法指令和最终请求字段写入。只有运行时值符合 Telegram 预期默认值时，适配器才会应用用户选择的档位。
+在途分块是尚未完成的请求；逻辑通道来自 Telegram 内部调度索引，不对应物理 TCP 连接。提交、响应、读取和播放是不同阶段，RPC 错误计数也不能单独确定网络故障。
 
-## Profiles / 档位
+后续 Telegram 版本若改变方法特征，需要重新适配。
 
-- Original / 原版: no fields changed / 不修改字段。
-- Balanced / 均衡: 1 MiB chunks, 4 lanes, 8 requests / 1 MiB 分块、4 路连接、8 请求。
-- High requests / 高请求: 1 MiB chunks, 4 lanes, 12 requests / 1 MiB 分块、4 路连接、12 请求。
+## English
 
-The user reported about 2 MB/s with the earlier eight-lane experiment and about 3 MB/s with Balanced. Both connection and request limits changed. This was not a controlled comparison, so neither a single-parameter cause nor a general performance guarantee is established. The four-lane/twelve-request profile still needs further testing.
+### Device testing
 
-用户反馈此前八路连接实验约为 2 MB/s，均衡档约为 3 MB/s。两档同时改变了连接数和请求上限，且不是受控对比，尚未确定单一参数原因，也不能作为通用性能保证。四路、十二请求档仍待进一步实测。
+| Telegram version | Version code | Checks |
+| --- | --- | --- |
+| 13.2.2 (Google Play) | 73031 | Dynamic discovery, download parameters and concurrency budget |
+| 13.3.1 (Google Play) | 73461 | Download policy, video positions, target chunks, data reads and local logs |
 
-## Safety boundaries / 安全边界
+Only the main process of `org.telegram.messenger` is targeted. On 13.3.1, version 3.3.3 logs show requests at new positions after seeking, followed by successful reads, including cached and uncached reads. These are scheduling checks, not bandwidth benchmarks.
 
-- Only the `org.telegram.messenger` main process is targeted / 只处理 `org.telegram.messenger` 主进程。
-- Discovery failures log `UNSUPPORTED` before hooks are installed; later policy failures log `POLICY_DISABLED` and stop subsequent writes / 发现阶段失败时在安装钩子前记录 `UNSUPPORTED`；运行中失败时记录 `POLICY_DISABLED` 并停止后续写入。
-- Runtime writes validate the defaults and attempt to restore the current batch on a write failure. Earlier successfully modified operations are not globally restored; restart Telegram with Original selected to return to defaults / 运行时先校验默认值；写入失败时尝试恢复本批字段，不会全局还原先前已修改的操作。选择原版档并重启 Telegram 才能恢复默认行为。
-- The module changes client-side scheduling only / 只修改客户端调度，不修改协议或服务端限制。
-- A future Telegram release can change the implementation fingerprint / Telegram 后续版本可能改变实现特征，需要重新验证。
+### Dynamic discovery
+
+Google Play builds obfuscate the `FileLoadOperation` class, methods and fields. DexKit discovers targets by their implementation fingerprints instead of source-level names.
+
+The parameter method must:
+
+- Take no arguments, return `void`, and use constants `131072`, `524288` and `2097152000`.
+- Write four non-static `int` fields and read two non-static `boolean` guard fields.
+
+The concurrency budget method is discovered separately using same-class field accesses, division instructions and the request-field write order. Runtime values are checked before applying parameters. Video discovery checks method signatures, URI parameters, listener interfaces and the position loader write to the listener field.
+
+### Video scheduling
+
+- Applies to `video/*` streams using the `tg` data source.
+- Keeps native queue priority and increasing ranks. Nonzero read positions use native priority chunks; zero-offset requests retain the original path.
+- Eligible new operations use 128 KiB chunks, 16 requests and 4 logical lanes. Existing operations keep their chunk alignment.
+- Video optimization is independent of ordinary download profiles. To restore all native scheduling, choose Original downloads, disable video optimization, save and reopen Telegram.
+
+### Errors and statistics
+
+Discovery failure records `UNSUPPORTED`. Ordinary download or video policy errors record `POLICY_DISABLED` or `VIDEO_DISABLED` and stop further changes. Failed writes attempt to roll back the current batch; earlier operations return to defaults after restarting Telegram.
+
+Pending chunks are unfinished requests. Logical lanes use internal scheduling indices, not physical TCP connections. Submission, response, reading and playback are separate stages. RPC error counts alone do not identify a network fault.
+
+Later Telegram versions may change these fingerprints and require an updated adapter.
