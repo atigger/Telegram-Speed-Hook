@@ -8,7 +8,9 @@
 		<item>高请求 · 4 路 / 12 请求</item>
 	</string-array>
 	<string name="save_button">保存并停止 Telegram</string>
-	<string name="settings_unavailable">无法读取配置。请在 LSPosed 中启用本模块，然后重新打开设置。</string>
+	<string name="settings_unavailable">配置服务未连接。请在支持 API 101+ 的框架中启用模块，迁移时授予 Root 权限，然后关闭并重新打开模块。</string>
+	<string name="settings_connecting">正在连接框架配置服务，升级迁移时请留意 Root 授权提示…</string>
+	<string name="settings_connected">已连接 · 配置已与 LSPosed 同步。</string>
 	<string name="saving">正在保存，请留意 Root 授权提示…</string>
 	<string name="details">档位说明\n均衡：1 MiB 分块，最多 4 个逻辑通道、8 个请求。\n高请求：1 MiB 分块，最多 4 个逻辑通道、12 个请求。\n原版：保留普通下载设置，视频优化单独控制。\n实际速度取决于网络、代理线路和 Telegram 服务端。\n\n设置在 Telegram 下次启动时生效。无法自动停止时，请手动强制停止后重开。\n\n原作者：AraafRoyall\n原项目：https://github.com/AraafRoyall/Telegram-Speed-Hook\n维护仓库：https://github.com/atigger/Telegram-Speed-Hook</string>
 	<string name="save_failed">保存失败，请重试。Telegram 未停止。</string>

@@ -18,8 +18,9 @@ import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
 public class MainActivity extends Activity {
-    private SharedPreferences preferences;
     private LiveLogView logView;
+    private Runnable settingsChanged;
+    private boolean saving;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,7 +62,7 @@ public class MainActivity extends Activity {
         add(content, status);
 
         try {
-            preferences = getSharedPreferences(SpeedPolicy.PREFERENCES, MODE_WORLD_READABLE);
+            SharedPreferences preferences = ModuleApplication.localSettings(this);
             int selected = preferences.getInt(SpeedPolicy.PROFILE_KEY, SpeedPolicy.PROFILE_FAST);
             if (selected < 0 || selected >= profiles.length) {
                 selected = SpeedPolicy.PROFILE_ORIGINAL;
@@ -74,7 +75,29 @@ public class MainActivity extends Activity {
             status.setText(R.string.settings_unavailable);
         }
 
+        settingsChanged = () -> {
+            SharedPreferences connected = ModuleApplication.preferences();
+            boolean available = connected != null;
+            save.setEnabled(available && !saving);
+            profileSpinner.setEnabled(available && !saving);
+            video.setEnabled(available && !saving);
+            if (saving) {
+                return;
+            }
+            if (available) {
+                profileSpinner.setSelection(connected.getInt(
+                        SpeedPolicy.PROFILE_KEY, SpeedPolicy.PROFILE_FAST));
+                video.setChecked(connected.getBoolean(SpeedPolicy.VIDEO_KEY, false));
+                status.setText(R.string.settings_connected);
+            } else {
+                status.setText(ModuleApplication.connectionFailed()
+                        ? R.string.settings_unavailable : R.string.settings_connecting);
+            }
+        };
+        settingsChanged.run();
+
         save.setOnClickListener(view -> {
+            saving = true;
             logView.stop();
             int profile = profileSpinner.getSelectedItemPosition();
             boolean videoEnabled = video.isChecked();
@@ -104,11 +127,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        ModuleApplication.observe(settingsChanged);
         logView.setForeground(true);
     }
 
     @Override
     protected void onPause() {
+        ModuleApplication.stopObserving(settingsChanged);
         logView.setForeground(false);
         super.onPause();
     }
@@ -128,8 +153,7 @@ public class MainActivity extends Activity {
                              Spinner spinner, Switch video, TextView status) {
         String message;
         try {
-            boolean saved = preferences.edit().putInt(SpeedPolicy.PROFILE_KEY, profile)
-                    .putBoolean(SpeedPolicy.VIDEO_KEY, videoEnabled).commit();
+            boolean saved = ModuleApplication.save(this, profile, videoEnabled);
             message = !saved ? getString(R.string.save_failed)
                     : getString(R.string.saved_profile, profileLabel) + "\n"
                     + getString(videoEnabled ? R.string.video_saved_on : R.string.video_saved_off)
@@ -139,11 +163,13 @@ public class MainActivity extends Activity {
         }
         String result = message;
         runOnUiThread(() -> {
+            saving = false;
             if (!isDestroyed()) {
                 status.setText(result);
-                save.setEnabled(true);
-                spinner.setEnabled(true);
-                video.setEnabled(true);
+                boolean available = ModuleApplication.preferences() != null;
+                save.setEnabled(available);
+                spinner.setEnabled(available);
+                video.setEnabled(available);
             }
         });
     }

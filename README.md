@@ -22,7 +22,7 @@ This fork builds on the original project with updated Telegram compatibility, do
 
 ### 安装与使用
 
-需要 Android 7.0 及以上、Root，以及支持模块共享配置的 Xposed / LSPosed 环境。作用域选择 `org.telegram.messenger`。
+需要 Android 8.0 或更高版本、Root，以及支持 libxposed API 101+ 和远程配置的框架。目标包名：`org.telegram.messenger`。
 
 1. 从 [Releases](https://github.com/atigger/Telegram-Speed-Hook/releases) 下载 APK 并安装。
 2. 在 LSPosed 中启用模块，勾选 Telegram 作用域，按框架提示完成激活。
@@ -30,6 +30,10 @@ This fork builds on the original project with updated Telegram compatibility, do
 4. 点击“保存并停止 Telegram”，授予 Root 权限，再重新打开 Telegram。
 
 保存会中断 Telegram 当前的下载和通话。无法自动停止时，可手动强制停止后重新打开。
+
+### 升级到 3.4.0
+
+3.4.0 改用现代 libxposed API，不再依赖旧式共享配置。覆盖安装后先打开模块，完成旧配置迁移并确认“已连接”，再保存并重开 Telegram。迁移保留下载档位、视频开关和现有本地日志；首次迁移可能需要 Root 授权。旧版框架需先升级。
 
 ### 下载档位
 
@@ -81,7 +85,7 @@ Telegram 启动后显示模块状态提示；下载参数应用后提示“下�
 
 ### 构建
 
-使用 JDK 17 和 Android SDK 35：
+使用 JDK 17 和 Android SDK 36：
 
 ```powershell
 .\gradlew.bat assembleDebug assembleRelease
@@ -93,7 +97,7 @@ Telegram 启动后显示模块状态提示；下载参数应用后提示“下�
 
 ### Setup
 
-Requires Android 7.0 or later, Root, and Xposed / LSPosed with shared module preferences. Target package: `org.telegram.messenger`.
+Requires Android 8.0 or later, Root, and a framework with libxposed API 101+ and remote preferences support. Target package: `org.telegram.messenger`.
 
 1. Install an APK from [Releases](https://github.com/atigger/Telegram-Speed-Hook/releases).
 2. Enable the module in LSPosed, select Telegram and follow the framework activation instructions.
@@ -101,6 +105,10 @@ Requires Android 7.0 or later, Root, and Xposed / LSPosed with shared module pre
 4. Tap **Save and stop Telegram**, grant Root access, then reopen Telegram.
 
 Saving interrupts active Telegram downloads and calls. If automatic stopping fails, force-stop Telegram manually and reopen it.
+
+### Upgrading to 3.4.0
+
+3.4.0 uses modern libxposed APIs instead of legacy shared preferences. After an in-place update, open the module, wait for **Connected**, then save and reopen Telegram. Migration preserves the download profile, video setting and existing local logs. The first migration may request Root access. Upgrade older frameworks first.
 
 ### Download profiles
 
@@ -152,7 +160,7 @@ The interface follows the Android system language: Chinese for Chinese locales, 
 
 ### Build
 
-Use JDK 17 and Android SDK 35:
+Use JDK 17 and Android SDK 36:
 
 ```powershell
 .\gradlew.bat assembleDebug assembleRelease

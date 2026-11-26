@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import de.robv.android.xposed.XSharedPreferences;
+import android.content.SharedPreferences;
 
 final class SpeedPolicy {
     private static final long MAX_FILE_SIZE = 2097152000L;
@@ -30,12 +30,10 @@ final class SpeedPolicy {
 
     static Config loadConfig() {
         try {
-            XSharedPreferences preferences = new XSharedPreferences(
-                    BuildConfig.APPLICATION_ID, PREFERENCES);
-            if (!preferences.getFile().canRead()) {
-                throw new IllegalStateException("settings unreadable; open module and save first");
+            SharedPreferences preferences = ModernHooks.preferences(PREFERENCES);
+            if (preferences.getInt("settings_schema", 0) != 1) {
+                throw new IllegalStateException("settings pending; open module to migrate settings");
             }
-            preferences.reload();
             int profile = preferences.getInt(PROFILE_KEY, PROFILE_FAST);
             boolean video = preferences.getBoolean(VIDEO_KEY, false);
             if (profile == PROFILE_BALANCED) {

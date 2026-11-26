@@ -3,42 +3,56 @@ package Telegram.Speed.Hook;
 import android.app.Application;
 import android.content.Context;
 import android.content.pm.PackageInfo;
+import android.content.pm.ApplicationInfo;
+
+import io.github.libxposed.api.XposedModule;
 import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import de.robv.android.xposed.IXposedHookLoadPackage;
-import de.robv.android.xposed.IXposedHookZygoteInit;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-public final class MainHook implements IXposedHookLoadPackage, IXposedHookZygoteInit {
+public final class MainHook extends XposedModule {
     private static final String TAG = "TgSpeedHook";
     private boolean installed;
+    private String processName;
     static String modulePath;
+    static ApplicationInfo moduleInfo;
 
     @Override
-    public void initZygote(StartupParam startupParam) {
-        modulePath = startupParam.modulePath;
+    public void onModuleLoaded(ModuleLoadedParam param) {
+        processName = param.getProcessName();
+        moduleInfo = getModuleApplicationInfo();
+        modulePath = moduleInfo.sourceDir;
+        ModernHooks.initialize(this);
+        log(android.util.Log.INFO, TAG, "Modern libxposed API " + getApiVersion());
     }
 
     @Override
-    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam load) throws Throwable {
-        if (!"org.telegram.messenger".equals(load.packageName)
-                || !load.packageName.equals(load.processName)) {
+    public void onPackageReady(PackageReadyParam param) {
+        if (!"org.telegram.messenger".equals(param.getPackageName())
+                || !param.getPackageName().equals(processName) || !param.isFirstPackage()) {
             return;
         }
-        XposedBridge.hookMethod(Application.class.getDeclaredMethod("attach", Context.class),
-                new XC_MethodHook() {
+        log(Log.INFO, TAG, "PACKAGE_READY " + param.getPackageName());
+        try {
+            installApplicationHook();
+        } catch (Throwable error) {
+            log(android.util.Log.ERROR, TAG, "Application hook failed", error);
+        }
+    }
+
+    private void installApplicationHook() throws NoSuchMethodException {
+        ModernHooks.hookMethod(Application.class.getDeclaredMethod("attach", Context.class),
+                new HookCallback() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) {
+            protected void after(Invocation param) {
                 if (installed || param.hasThrowable()) {
                     return;
                 }
                 installed = true;
                 Context context = (Context) param.args[0];
+                MainHook.this.log(Log.INFO, TAG, "APPLICATION_ATTACHED " + context.getPackageName());
                 try {
                     HookDiagnostics.start(context);
                 } catch (Throwable error) {
@@ -49,6 +63,7 @@ public final class MainHook implements IXposedHookLoadPackage, IXposedHookZygote
                     PackageInfo info = context.getPackageManager()
                             .getPackageInfo(context.getPackageName(), 0);
                     log("Telegram " + info.versionName + " (" + info.versionCode + ")");
+                    log("CONFIG_SOURCE remote-preferences; api=" + ModernHooks.apiVersion());
                     SpeedPolicy.Config config = SpeedPolicy.loadConfig();
                     log("PROFILE " + config.name);
                     log("VIDEO_PROFILE " + (config.videoEnabled ? "on" : "off"));
@@ -65,7 +80,10 @@ public final class MainHook implements IXposedHookLoadPackage, IXposedHookZygote
                     HookDiagnostics.budgetRequired(target.updateBudget != null);
                     installScheduling(target, config, video);
                     log("HOOK_READY " + target.updateParams + "; budget=" + target.updateBudget);
+                    MainHook.this.log(Log.INFO, TAG,
+                            "HOOK_READY profile=" + config.name + "; video=" + config.videoEnabled);
                 } catch (Throwable error) {
+                    MainHook.this.log(Log.ERROR, TAG, "Hook installation failed", error);
                     log("UNSUPPORTED: " + Log.getStackTraceString(error));
                 }
             }
@@ -76,20 +94,20 @@ public final class MainHook implements IXposedHookLoadPackage, IXposedHookZygote
                                           VideoPolicy video) throws Throwable {
         SpeedPolicy policy = new SpeedPolicy(target);
         SpeedPolicy videoScheduling = new SpeedPolicy(target);
-        List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
+        List<ModernHooks.Handle> hooks = new ArrayList<>();
         try {
-            hooks.add(XposedBridge.hookMethod(target.updateParams, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(target.updateParams, new HookCallback() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam update) {
+                protected void after(Invocation update) {
                     if (!update.hasThrowable()) {
                         applyScheduling(update.thisObject, false, config, policy, videoScheduling, video);
                     }
                 }
             }));
             if (target.updateBudget != null) {
-                hooks.add(XposedBridge.hookMethod(target.updateBudget, new XC_MethodHook() {
+                hooks.add(ModernHooks.hookMethod(target.updateBudget, new HookCallback() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam update) {
+                    protected void after(Invocation update) {
                         if (!update.hasThrowable()) {
                             applyScheduling(update.thisObject, true, config, policy, videoScheduling, video);
                         }
@@ -97,7 +115,7 @@ public final class MainHook implements IXposedHookLoadPackage, IXposedHookZygote
                 }));
             }
         } catch (Throwable error) {
-            for (XC_MethodHook.Unhook hook : hooks) {
+            for (ModernHooks.Handle hook : hooks) {
                 hook.unhook();
             }
             if (video != null) {

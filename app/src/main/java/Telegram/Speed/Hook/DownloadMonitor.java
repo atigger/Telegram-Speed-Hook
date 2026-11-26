@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 
 final class DownloadMonitor {
     private final Map<String, Request> requests = new HashMap<>();
@@ -37,7 +35,7 @@ final class DownloadMonitor {
     }
 
     static void install(ClassLoader loader) {
-        List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
+        List<ModernHooks.Handle> hooks = new ArrayList<>();
         try {
             Handler worker = HookDiagnostics.worker();
             if (worker == null) {
@@ -59,39 +57,39 @@ final class DownloadMonitor {
                 }
             }
             DownloadMonitor monitor = new DownloadMonitor(worker);
-            hooks.add(XposedBridge.hookMethod(send, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(send, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     if (((int) param.args[4] & 65535) == 2 && (int) param.args[7] > 0) {
                         monitor.begin(param.args);
                     }
                 }
 
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void after(Invocation param) {
                     if (param.hasThrowable()) {
                         monitor.end((int) param.args[0], (int) param.args[6], "failed");
                     }
                 }
             }));
-            hooks.add(XposedBridge.hookMethod(complete, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(complete, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     String outcome = (long) param.args[2] != 0 ? "succeeded"
                             : (int) param.args[3] != 0 || param.args[4] != null
                             ? "rpc_error" : "unknown";
                     monitor.end((int) param.args[0], (int) param.args[1], outcome);
                 }
             }));
-            hooks.add(XposedBridge.hookMethod(clear, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(clear, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     monitor.end((int) param.args[0], (int) param.args[1], "cleared");
                 }
             }));
-            hooks.add(XposedBridge.hookMethod(written, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(written, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     monitor.written((int) param.args[0], (int) param.args[1]);
                 }
             }));
@@ -99,7 +97,7 @@ final class DownloadMonitor {
             HookDiagnostics.registerMonitorReset(monitor::resetCapture);
             worker.post(monitor.tick);
         } catch (Throwable error) {
-            for (XC_MethodHook.Unhook hook : hooks) {
+            for (ModernHooks.Handle hook : hooks) {
                 hook.unhook();
             }
             MainHook.log("MONITOR_UNAVAILABLE: " + error);

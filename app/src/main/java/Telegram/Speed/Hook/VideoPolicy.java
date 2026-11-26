@@ -21,8 +21,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 
 final class VideoPolicy {
     private static final SpeedPolicy.Config VIDEO = new SpeedPolicy.Config(
@@ -40,7 +38,7 @@ final class VideoPolicy {
     private final Map<Object, Stream> operations = Collections.synchronizedMap(new WeakHashMap<>());
     private final ThreadLocal<Stream> opening = new ThreadLocal<>();
     private final ThreadLocal<Stream> sending = new ThreadLocal<>();
-    private final List<XC_MethodHook.Unhook> installed = new ArrayList<>();
+    private final List<ModernHooks.Handle> installed = new ArrayList<>();
     private volatile boolean disabled;
 
     private VideoPolicy(HookResolver.Target target, Field listener) {
@@ -49,7 +47,7 @@ final class VideoPolicy {
     }
 
     static VideoPolicy install(Context context, HookResolver.Target target) {
-        List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
+        List<ModernHooks.Handle> hooks = new ArrayList<>();
         try (DexKitBridge bridge = DexKitBridge.create(context.getClassLoader(), false)) {
             List<MethodData> opens = bridge.findMethod(FindMethod.create()
                     .searchPackages("org.telegram.messenger")
@@ -93,9 +91,9 @@ final class VideoPolicy {
             }
             VideoPolicy policy = new VideoPolicy(target, listeners.get(0));
             Method load = positionMethod(bridge, target, listeners.get(0), context.getClassLoader());
-            hooks.add(XposedBridge.hookMethod(load, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(load, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     Stream stream = policy.streams.get(param.args[9]);
                     if (policy.disabled || stream == null || stream.closed) {
                         return;
@@ -120,7 +118,7 @@ final class VideoPolicy {
                 }
 
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void after(Invocation param) {
                     Stream stream = (Stream) param.getObjectExtra(REQUEST_STREAM);
                     if (stream == null) {
                         return;
@@ -136,9 +134,9 @@ final class VideoPolicy {
                     }
                 }
             }));
-            hooks.add(XposedBridge.hookMethod(open, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(open, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     try {
                         if (policy.disabled) {
                             return;
@@ -158,7 +156,7 @@ final class VideoPolicy {
                 }
 
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void after(Invocation param) {
                     if (param.hasThrowable()) {
                         Stream stream = policy.streams.remove(param.thisObject);
                         if (stream != null) {
@@ -167,9 +165,9 @@ final class VideoPolicy {
                     }
                 }
             }));
-            hooks.add(XposedBridge.hookMethod(priority, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(priority, new HookCallback() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void after(Invocation param) {
                     Stream stream = policy.streams.get(param.thisObject);
                     if (!policy.disabled && stream != null && !param.hasThrowable()) {
                         int original = (int) param.getResult();
@@ -181,16 +179,16 @@ final class VideoPolicy {
                     }
                 }
             }));
-            hooks.add(XposedBridge.hookMethod(read, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(read, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     if (HookDiagnostics.recording() && policy.streams.containsKey(param.thisObject)) {
                         param.setObjectExtra(READ_START, SystemClock.elapsedRealtime());
                     }
                 }
 
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void after(Invocation param) {
                     Stream stream = policy.streams.get(param.thisObject);
                     if (stream == null) {
                         return;
@@ -223,9 +221,9 @@ final class VideoPolicy {
                     }
                 }
             }));
-            hooks.add(XposedBridge.hookMethod(close, new XC_MethodHook() {
+            hooks.add(ModernHooks.hookMethod(close, new HookCallback() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void after(Invocation param) {
                     Stream stream = policy.streams.remove(param.thisObject);
                     if (stream != null) {
                         stream.closed = true;
@@ -239,7 +237,7 @@ final class VideoPolicy {
                     + " chunk=131072 requests=16 lanes=4 queuePriority=native positionPriority=native");
             return policy;
         } catch (Throwable error) {
-            for (XC_MethodHook.Unhook hook : hooks) {
+            for (ModernHooks.Handle hook : hooks) {
                 hook.unhook();
             }
             MainHook.log("VIDEO_UNAVAILABLE: " + error.getClass().getSimpleName()
@@ -288,8 +286,8 @@ final class VideoPolicy {
                 && types[10] == long.class && types[11] == boolean.class && types[12] == int.class;
     }
 
-    private void installRequestTrace(ClassLoader loader, List<XC_MethodHook.Unhook> hooks) {
-        List<XC_MethodHook.Unhook> trace = new ArrayList<>();
+    private void installRequestTrace(ClassLoader loader, List<ModernHooks.Handle> hooks) {
+        List<ModernHooks.Handle> trace = new ArrayList<>();
         try {
             Method schedule = uniqueMethod(target.updateParams.getDeclaringClass(), void.class, int.class);
             Class<?> manager = Class.forName("org.telegram.tgnet.ConnectionsManager", false, loader);
@@ -309,9 +307,9 @@ final class VideoPolicy {
             if (send == null) {
                 throw new IllegalStateException("synchronous request boundary unavailable");
             }
-            trace.add(XposedBridge.hookMethod(schedule, new XC_MethodHook() {
+            trace.add(ModernHooks.hookMethod(schedule, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     Stream stream = operations.get(param.thisObject);
                     try {
                         Stream active = streams.get(listener.get(param.thisObject));
@@ -331,7 +329,7 @@ final class VideoPolicy {
                 }
 
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void after(Invocation param) {
                     if (param.getObjectExtra(REQUEST_STREAM) != null) {
                         Stream previous = (Stream) param.getObjectExtra(PREVIOUS_STREAM);
                         if (previous == null) {
@@ -342,9 +340,9 @@ final class VideoPolicy {
                     }
                 }
             }));
-            trace.add(XposedBridge.hookMethod(send, new XC_MethodHook() {
+            trace.add(ModernHooks.hookMethod(send, new HookCallback() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
+                protected void before(Invocation param) {
                     Stream stream = sending.get();
                     if (stream == null || disabled || stream.closed || !HookDiagnostics.recording()) {
                         return;
@@ -370,7 +368,7 @@ final class VideoPolicy {
                 }
 
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void after(Invocation param) {
                     Stream stream = (Stream) param.getObjectExtra(REQUEST_STREAM);
                     if (stream == null || stream.closed || !HookDiagnostics.recording()
                             || param.hasThrowable() || (int) param.getResult() <= 0) {
@@ -387,7 +385,7 @@ final class VideoPolicy {
             hooks.addAll(trace);
             MainHook.log("VIDEO_TRACE_READY position requests and submitted byte ranges");
         } catch (Throwable error) {
-            for (XC_MethodHook.Unhook hook : trace) {
+            for (ModernHooks.Handle hook : trace) {
                 hook.unhook();
             }
             traceFailure();
@@ -447,7 +445,7 @@ final class VideoPolicy {
 
     void uninstall() {
         disable();
-        for (XC_MethodHook.Unhook hook : installed) {
+        for (ModernHooks.Handle hook : installed) {
             hook.unhook();
         }
         installed.clear();

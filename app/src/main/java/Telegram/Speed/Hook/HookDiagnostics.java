@@ -22,9 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import android.content.res.XModuleResources;
 
 final class HookDiagnostics {
     static final String RELATIVE_PATH = "files/tg_speed_hook/status.json";
@@ -81,13 +78,13 @@ final class HookDiagnostics {
         state.put("phase", "starting");
         state.put("budgetRequired", true);
         try {
-            strings = XModuleResources.createInstance(MainHook.modulePath, null);
+            strings = context.getPackageManager().getResourcesForApplication(MainHook.moduleInfo);
         } catch (Throwable error) {
             Log.w("TgSpeedHook", "Toast resources unavailable", error);
         }
-        XposedBridge.hookAllMethods(Activity.class, "onResume", new XC_MethodHook() {
+        ModernHooks.hookAllMethods(Activity.class, "onResume", new HookCallback() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) {
+            protected void after(Invocation param) {
                 Activity activity = (Activity) param.thisObject;
                 if ("org.telegram.messenger".equals(activity.getPackageName())) {
                     foreground = new WeakReference<>(activity);
@@ -95,9 +92,9 @@ final class HookDiagnostics {
                 }
             }
         });
-        XposedBridge.hookAllMethods(Activity.class, "onPause", new XC_MethodHook() {
+        ModernHooks.hookAllMethods(Activity.class, "onPause", new HookCallback() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) {
+            protected void after(Invocation param) {
                 if (foreground.get() == param.thisObject) {
                     foreground.clear();
                 }

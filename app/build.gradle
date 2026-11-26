@@ -4,14 +4,14 @@ plugins {
 
 android {
     namespace 'Telegram.Speed.Hook'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId 'Telegram.Speed.Hook'
-        minSdk 24
+        minSdk 26
         targetSdk 35
-        versionCode 12
-        versionName '3.3.4'
+        versionCode 13
+        versionName '3.4.0'
     }
 
     buildFeatures { buildConfig true }
@@ -35,7 +35,8 @@ android {
 }
 
 dependencies {
-    compileOnly 'de.robv.android.xposed:api:82'
+    compileOnly 'io.github.libxposed:api:101.0.1'
+    implementation 'io.github.libxposed:service:101.0.0'
     implementation 'org.luckypray:dexkit:2.3.0'
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
 }

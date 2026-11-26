@@ -1,5 +1,23 @@
 # Changelog / 更新记录
 
+## 3.4.0 — 2026-11-26
+
+### 中文
+
+- 迁移到现代 libxposed API 101，替换旧模块入口、Hook 回调和跨进程配置读取。
+- 自动导入旧版下载档位与视频开关，改由框架远程配置同步；不再使用世界可读配置文件。
+- 增加配置服务连接状态，连接或迁移失败时禁用保存，避免配置未同步就停止 Telegram。
+- 保留下载、视频、本地日志与中英双语功能；最低要求 Android 8.0 和支持 API 101+ 的框架。
+- 编译工具链更新为 Android SDK 36 / AGP 8.10.1，targetSdk 保持 35。
+
+### English
+
+- Migrate module entry points, hook callbacks and cross-process settings to modern libxposed API 101.
+- Import the previous download profile and video setting, then synchronize through framework remote preferences instead of world-readable files.
+- Show settings connection status and disable saving when connection or migration fails, without stopping Telegram.
+- Retain download, video, local logging and bilingual features. Require Android 8.0+ and an API 101+ framework.
+- Build with Android SDK 36 / AGP 8.10.1; keep targetSdk 35.
+
 ## 3.3.4 — 2026-11-25
 
 ### 中文

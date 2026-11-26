@@ -9,7 +9,9 @@
 		<item>High requests · 4 lanes / 12 requests</item>
 	</string-array>
 	<string name="save_button">Save and stop Telegram</string>
-	<string name="settings_unavailable">Cannot read settings. Enable this module in LSPosed, then reopen settings.</string>
+	<string name="settings_unavailable">Settings service unavailable. Enable this module in an API 101+ framework, grant Root for migration, then close and reopen the module.</string>
+	<string name="settings_connecting">Connecting to framework settings… Check for a Root prompt when upgrading.</string>
+	<string name="settings_connected">Connected · Settings synchronized with LSPosed.</string>
 	<string name="saving">Saving… Check for a Root permission prompt.</string>
 	<string name="details">Download profiles\nBalanced: 1 MiB chunks, up to 4 logical lanes and 8 requests.\nHigh requests: 1 MiB chunks, up to 4 logical lanes and 12 requests.\nOriginal: keep ordinary downloads unchanged; video optimization is controlled separately.\nActual speed depends on your network, proxy route and Telegram servers.\n\nSettings apply when Telegram next starts. If automatic stopping fails, force-stop it manually and reopen it.\n\nOriginal author: AraafRoyall\nOriginal project: https://github.com/AraafRoyall/Telegram-Speed-Hook\nMaintained fork: https://github.com/atigger/Telegram-Speed-Hook</string>
 	<string name="save_failed">Could not save settings. Telegram was not stopped. Try again.</string>

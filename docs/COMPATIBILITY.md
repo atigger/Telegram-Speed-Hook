@@ -4,6 +4,16 @@
 
 ## 中文
 
+### 框架接口
+
+3.4.0 使用 libxposed API 101、框架远程配置和现代模块入口；不再调用 legacy Xposed API、`XSharedPreferences` 或资源 Hook。最低 Android 8.0。框架需要支持 API 101+ 和远程配置。
+
+首次升级从旧版框架的模块配置目录导入下载档位和视频开关，再由框架保存、向 Telegram 提供只读配置。模块界面保留私有备份。连接或迁移失败时禁用保存，不停止 Telegram；未完成迁移时 Telegram 保持原生下载参数。日志目录及保留规则不变。
+
+### 3.4.0 迁移验证
+
+2026-11-25 在 LSPosed 2.2.1（7912，运行时 API 102）及 Telegram 13.3.1（73461）上验证：现代入口加载、旧版均衡档和视频开关导入、保存后由 Telegram 读取新档位及开关。日志确认 `CONFIG_SOURCE remote-preferences`、`VIDEO_READY`、`HOOK_READY` 与 `PARAMS_APPLIED`。测试后恢复均衡档、视频优化开启及原有记录开关状态。迁移验证不包含新的视频播放速度基准。
+
 ### 实机测试
 
 | Telegram 版本 | Version code | 已检查内容 |
@@ -40,6 +50,16 @@ Google Play 构建会混淆 `FileLoadOperation` 的类名、方法和字段。�
 后续 Telegram 版本若改变方法特征，需要重新适配。
 
 ## English
+
+### Framework API
+
+3.4.0 uses libxposed API 101, framework-managed remote preferences and modern module entry points. It no longer calls legacy Xposed APIs, XSharedPreferences or resource hooks. Android 8.0+ and an API 101+ framework with remote preferences support are required.
+
+On the first upgrade, the module imports the download profile and video switch from the legacy framework preferences. The framework stores the settings and exposes them read-only to Telegram; the module keeps a private backup. Saving is disabled if migration or connection fails, and Telegram is not stopped. Before migration completes, Telegram retains its native download parameters. Local log paths and retention are unchanged.
+
+### 3.4.0 migration validation
+
+On November 25, 2026, LSPosed 2.2.1 (7912, runtime API 102) and Telegram 13.3.1 (73461) passed modern entry loading, legacy Balanced/video settings import, and saved profile/video changes read by Telegram. Logs confirmed CONFIG_SOURCE remote-preferences, VIDEO_READY, HOOK_READY and PARAMS_APPLIED. Balanced, video enabled and the original recording state were restored after testing. This migration check is not a new video playback benchmark.
 
 ### Device testing
 
